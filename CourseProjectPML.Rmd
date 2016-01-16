@@ -1,0 +1,83 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Janpu Hou"
+date: "January 15, 2016"
+output: html_document
+---
+# Overview: 
+In this project, our goal is using data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to build a model to quantify how well they do it. This report describing how we built our model, how we used cross validation, what we think the expected out of sample error is, and why we made the choices we did. The model is use to predict 20 different test cases.
+
+
+# 1. How we built our model
+
+```{r}
+# install.packages("caret")
+library(caret)
+training <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+testing <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))  
+```
+Data before cleaning
+```{r}
+dim(training)
+```
+
+```{r}
+# remove variables that don't make intuitive sense for prediction (X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp), which happen to be the first five variables
+training <- training[, -(1:5)]
+
+
+# remove variables with nearly zero variance
+nzv <- nearZeroVar(training)
+training <- training[, -nzv]
+
+# remove variables that are almost always NA
+mostlyNA <- sapply(training, function(x) mean(is.na(x))) > 0.95
+training <- training[, mostlyNA==F]
+```
+Data after cleaning
+```{r}
+dim(training)
+```
+
+```{r}
+set.seed(258)
+inTrain <- createDataPartition(y=training$classe, p=0.7, list=F)
+MyTraining <- training[inTrain, ]
+MyTesting <- training[-inTrain, ]
+```
+
+# 2. How to use cross validation
+
+```{r}
+# instruct train to use 3-fold CV to select optimal tuning parameters
+fitControl <- trainControl(method="cv", number=3, verboseIter=F)
+# fit model on MyTraining data
+fit <- train(classe ~ ., data=MyTraining, method="rf", trControl=fitControl)
+
+# print final model to see tuning parameters it chose
+fit$finalModel
+
+# use model to predict classe in validation set (MyTesting)
+preds <- predict(fit, newdata=MyTesting)
+```
+
+# 3. What the expected out of sample error is
+
+```{r}
+# show confusion matrix to get estimate of out-of-sample error
+confusionMatrix(MyTesting$classe, preds)
+```
+
+# 4. why we made the choices we did
+From the estimated error, we may conclude that this model has very accurate prediction.
+
+```{r}
+imps <- varImp(fit)
+imps
+```
+# 5. use our prediction model to predict 20 different test cases
+```{r}
+predsfinal <- predict(fit, newdata=testing)
+predsfinal
+```
+
